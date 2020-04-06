@@ -43,7 +43,7 @@ func TestSignup(t *testing.T) {
 		name string
 		body string
 		code int
-		resp interface{}
+		resp string
 	}{
 		{
 			"OK case",
@@ -117,7 +117,7 @@ func TestSignup(t *testing.T) {
 			if rec.Code != tt.code {
 				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
 			}
-			if got := rec.Body.String(); got != tt.resp.(string) {
+			if got := rec.Body.String(); got != tt.resp {
 				t.Errorf("want = %s, got = %s", tt.resp, got)
 			}
 		})
@@ -135,7 +135,7 @@ func TestGetUser(t *testing.T) {
 		path string
 		auth string
 		code int
-		resp interface{}
+		resp string
 	}{
 		{
 			"OK case",
@@ -177,7 +177,153 @@ func TestGetUser(t *testing.T) {
 			if rec.Code != tt.code {
 				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
 			}
-			if got := rec.Body.String(); got != tt.resp.(string) {
+			if got := rec.Body.String(); got != tt.resp {
+				t.Errorf("want = %s, got = %s", tt.resp, got)
+			}
+		})
+	}
+}
+
+func TestPatchUser(t *testing.T) {
+	e := echo.New()
+	u := userModelStub{}
+	h := Handler{&u}
+	e.PATCH("users/:user_id", h.PatchUser)
+
+	tests := []struct {
+		name string
+		path string
+		body string
+		auth string
+		code int
+		resp string
+	}{
+		{
+			"OK case",
+			"TaroYamada",
+			`{"nickname": "タロー", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User successfully updated","recipe":[{"nickname":"タロー","comment":"僕は元気です^^"}]}` + "\n",
+		},
+		{
+			"nickname update",
+			"TaroYamada",
+			`{"nickname": "タロー"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User successfully updated","recipe":[{"nickname":"タロー","comment":"僕は元気です"}]}` + "\n",
+		},
+		{
+			"comment update",
+			"TaroYamada",
+			`{"comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User successfully updated","recipe":[{"nickname":"たろー","comment":"僕は元気です^^"}]}` + "\n",
+		},
+		{
+			"empty nickname",
+			"TaroYamada",
+			`{"nickname": "", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User successfully updated","recipe":[{"nickname":"TaroYamada","comment":"僕は元気です^^"}]}` + "\n",
+		},
+		{
+			"empty comment",
+			"TaroYamada",
+			`{"nickname": "タロー", "comment": ""}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User successfully updated","recipe":[{"nickname":"タロー","comment":""}]}` + "\n",
+		},
+		{
+			"long nickname",
+			"TaroYamada",
+			`{"nickname": "ニックネームは長ければ長い方がいいが30文字に収めなければならない", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"the length of nickname must be 30 or less"}` + "\n",
+		},
+		{
+			"nickname with control",
+			"TaroYamada",
+			`{"nickname": "タ\tロー", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"nickname must not contain any control code"}` + "\n",
+		},
+		{
+			"long comment",
+			"TaroYamada",
+			`{"nickname": "タロー", "comment": "100文字を超えるコメントのテストをしたい。しかし、100文字を超えるコメントを実際に試してみるのは大変である。なので、ほげで残りの文字数をほげで埋めることで代えさせていただく。ホゲホゲほげほげほげほげほげほげほげほげ。"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"the length of comment must be 100 or less"}` + "\n",
+		},
+		{
+			"comment with control",
+			"TaroYamada",
+			`{"nickname": "タロー", "comment": "僕は元気です\n"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"comment must not contain any control code"}` + "\n",
+		},
+		{
+			"no update",
+			"TaroYamada",
+			`{}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"required nickname or comment"}` + "\n",
+		},
+		{
+			"user_id update",
+			"TaroYamada",
+			`{"user_id": "taroimo", "nickname": "タロー", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"not updatable user_id and password"}` + "\n",
+		},
+		{
+			"password update",
+			"TaroYamada",
+			`{"password": "taroyama", "nickname": "タロー", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusBadRequest,
+			`{"message":"User updation failed","cause":"not updatable user_id and password"}` + "\n",
+		},
+		{
+			"auth error",
+			"TaroYamada",
+			`{"nickname": "タロー", "comment": "僕は元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd3c=",
+			http.StatusUnauthorized,
+			`{"message":"Authentication Faild"}` + "\n",
+		},
+		{
+			"other user update",
+			"TestUser",
+			`{"nickname": "testes", "comment": "僕も元気です^^"}`,
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusForbidden,
+			`{"message":"No Permission for Update"}` + "\n",
+		},
+
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("PATCH", "/users/" + tt.path, strings.NewReader(tt.body))
+			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Authorization", tt.auth)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if rec.Code != tt.code {
+				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
+			}
+			if got := rec.Body.String(); got != tt.resp {
 				t.Errorf("want = %s, got = %s", tt.resp, got)
 			}
 		})
@@ -194,7 +340,7 @@ func TestCloseUser(t *testing.T) {
 		name string
 		auth string
 		code int
-		resp interface{}
+		resp string
 	}{
 		{
 			"OK case",
@@ -220,40 +366,9 @@ func TestCloseUser(t *testing.T) {
 			if rec.Code != tt.code {
 				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
 			}
-			if got := rec.Body.String(); got != tt.resp.(string) {
+			if got := rec.Body.String(); got != tt.resp {
 				t.Errorf("want = %s, got = %s", tt.resp, got)
 			}
 		})
 	}
 }
-
-//func TestFramework(t *testing.T) {
-//	e := echo.New()
-//	u := userModelStub{}
-//	h := Handler{&u}
-//	e.POST("/signup", h.SignUp)
-//
-//	tests := []struct {
-//		name string
-//		body string
-//		code int
-//		resp interface{}
-//	}{
-//		{},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			req := httptest.NewRequest("POST", "/signup", strings.NewReader(tt.body))
-//			req.Header.Add("Content-Type", "application/json")
-//			rec := httptest.NewRecorder()
-//			e.ServeHTTP(rec, req)
-//			if rec.Code != tt.code {
-//				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
-//			}
-//			if got := rec.Body.String(); got != tt.resp.(string) {
-//				t.Errorf("want = %s, got = %s", tt.resp, got)
-//			}
-//		})
-//	}
-//}

@@ -9,13 +9,6 @@ type Handler struct {
 	user Model
 }
 
-type User struct {
-	UserId   string `json:"user_id,omitempty"`
-	Password string `json:"password,omitempty"`
-	Nickname string `json:"nickname,omitempty"`
-	Comment  string `json:"comment,omitempty"`
-}
-
 func (handler *Handler) BasicAuth(c echo.Context) (userId string, ok bool) {
 	userId, password, ok := c.Request().BasicAuth()
 	pw := handler.user.FetchPassword(userId)
@@ -117,11 +110,20 @@ func (handler *Handler) PatchUser(c echo.Context) error {
 	user := new(struct{
 		UserId   string `json:"user_id" validate:"isdefault"`
 		Password string `json:"password" validate:"isdefault"`
-		Nickname interface{} `json:"nickname" validate:"required_without=Comment,excludes_control,max=30"`
-		Comment  interface{} `json:"comment" validate:"required_without=Nickname,excludes_control,max=100"`
+		Nickname interface{} `json:"nickname" validate:"excludes_control,max=30"`
+		Comment  interface{} `json:"comment" validate:"excludes_control,max=100"`
 	})
 	if err := c.Bind(&user); err != nil {
 		return UserUpdationError(c, err.Error())
+	}
+
+	field, tag := Validate(user)
+	if tag == "isdefault" {
+		return UserUpdationError(c, "not updatable user_id and password")
+	}
+
+	if user.Nickname == nil && user.Comment == nil {
+		return UserUpdationError(c, "required nickname or comment")
 	}
 	if user.Nickname == nil {
 		user.Nickname = nickname
@@ -129,26 +131,20 @@ func (handler *Handler) PatchUser(c echo.Context) error {
 	if user.Comment == nil {
 		user.Comment = comment
 	}
+	field, tag = Validate(user)
 
-	field, tag := Validate(user)
-	if tag == "isdefault" {
-		return UserUpdationError(c, "not updatable user_id and password")
-	}
-	if tag == "required_without" {
-		return UserUpdationError(c, "required nickname or comment")
-	}
 	if field == "Nickname" {
 		if tag == "max" {
 			return UserUpdationError(c, "the length of nickname must be 30 or less")
 		} else {
-			return UserUpdationError(c, "nickname must not contain any control code.")
+			return UserUpdationError(c, "nickname must not contain any control code")
 		}
 	}
 	if field == "Comment" {
 		if tag == "max" {
 			return UserUpdationError(c, "the length of comment must be 100 or less")
 		} else {
-			return UserUpdationError(c, "comment must not contain any control code.")
+			return UserUpdationError(c, "comment must not contain any control code")
 		}
 	}
 

@@ -6,6 +6,18 @@ import (
 	"github.com/labstack/echo"
 )
 
+type User struct {
+	UserId   string `json:"user_id,omitempty"`
+	Password string `json:"password,omitempty"`
+	Nickname string `json:"nickname,omitempty"`
+	Comment  string `json:"comment,omitempty"`
+}
+
+type Recipe struct {
+	Nickname string `json:"nickname"`
+	Comment  string `json:"comment"`
+}
+
 func SignUpResponse(c echo.Context, userId string) error {
 	return c.JSON(http.StatusOK, struct {
 		Message string `json:"message"`
@@ -31,14 +43,14 @@ func UserResponse(c echo.Context, user User) error {
 
 func UpdateResponse(c echo.Context, nickname, comment string) error {
 	return c.JSON(http.StatusOK, struct {
-		Message string `json:"message"`
-		Recipe  User   `json:"user"`
+		Message string   `json:"message"`
+		Recipe  []Recipe `json:"recipe"`
 	}{
 		Message: "User successfully updated",
-		Recipe: User{
+		Recipe: []Recipe{{
 			Nickname: nickname,
 			Comment:  comment,
-		},
+		}},
 	})
 }
 
