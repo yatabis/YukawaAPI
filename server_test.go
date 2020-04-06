@@ -17,10 +17,19 @@ func (u *userModelStub) New(_, _ string) {}
 func (u *userModelStub) FetchDetail(userId string) (string, string, string) {
 	if userId == "TaroYamada" {
 		return "TaroYamada", "たろー", "僕は元気です"
+	} else if userId == "TestUser" {
+		return "TestUser", "", ""
 	}
 	return "", "", ""
 }
-func (u *userModelStub) FetchPassword(_ string) string { return "test@password" }
+func (u *userModelStub) FetchPassword(userId string) string {
+	if userId == "TaroYamada" {
+		return "PaSSwd4TY"
+	} else if userId ==  "TestUser" {
+		return "TestPassword"
+	}
+	return ""
+}
 func (u *userModelStub) Update(_, _, _ string) {}
 func (u *userModelStub) Delete(_ string) {}
 
@@ -28,11 +37,7 @@ func TestSignup(t *testing.T) {
 	e := echo.New()
 	u := userModelStub{}
 	h := Handler{&u}
-
 	e.POST("/signup", h.SignUp)
-	e.GET("users/:user_id", h.GetUser)
-	e.PATCH("users/:user_id", h.PatchUser)
-	e.POST("/close", h.CloseUser)
 
 	tests := []struct {
 		name string
@@ -102,10 +107,11 @@ func TestSignup(t *testing.T) {
 		},
 
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("POST", "/signup", strings.NewReader(tt.body))
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Add("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
 			if rec.Code != tt.code {
@@ -117,3 +123,94 @@ func TestSignup(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUser(t *testing.T) {
+	e := echo.New()
+	u := userModelStub{}
+	h := Handler{&u}
+	e.GET("users/:user_id", h.GetUser)
+
+	tests := []struct {
+		name string
+		path string
+		auth string
+		code int
+		resp interface{}
+	}{
+		{
+			"OK case",
+			"TaroYamada",
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User details by user_id","user":{"user_id":"TaroYamada","nickname":"たろー","comment":"僕は元気です"}}` + "\n",
+		},
+		{
+			"other user",
+			"TestUser",
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"User details by user_id","user":{"user_id":"TestUser","nickname":"TestUser"}}` + "\n",
+		},
+		{
+			"no user found",
+			"not_exist",
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusNotFound,
+			`{"message":"No user found"}` + "\n",
+		},
+		{
+			"auth error",
+			"TaroYamada",
+			"Basic asdfg",
+			http.StatusUnauthorized,
+			`{"message":"Authentication Faild"}` + "\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/users/" + tt.path, nil)
+			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Authorization", tt.auth)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if rec.Code != tt.code {
+				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
+			}
+			if got := rec.Body.String(); got != tt.resp.(string) {
+				t.Errorf("want = %s, got = %s", tt.resp, got)
+			}
+		})
+	}
+}
+
+//func TestFramework(t *testing.T) {
+//	e := echo.New()
+//	u := userModelStub{}
+//	h := Handler{&u}
+//	e.POST("/signup", h.SignUp)
+//
+//	tests := []struct {
+//		name string
+//		body string
+//		code int
+//		resp interface{}
+//	}{
+//		{},
+//	}
+//
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			req := httptest.NewRequest("POST", "/signup", strings.NewReader(tt.body))
+//			req.Header.Add("Content-Type", "application/json")
+//			rec := httptest.NewRecorder()
+//			e.ServeHTTP(rec, req)
+//			if rec.Code != tt.code {
+//				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
+//			}
+//			if got := rec.Body.String(); got != tt.resp.(string) {
+//				t.Errorf("want = %s, got = %s", tt.resp, got)
+//			}
+//		})
+//	}
+//}

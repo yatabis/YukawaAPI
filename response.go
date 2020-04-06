@@ -69,7 +69,7 @@ func AuthenticationError(c echo.Context) error {
 }
 
 func NoUserFoundError(c echo.Context) error {
-	return ErrorResponse(c, http.StatusBadRequest, "No user found", "")
+	return ErrorResponse(c, http.StatusNotFound, "No user found", "")
 }
 
 func NoPermissionError(c echo.Context) error {
