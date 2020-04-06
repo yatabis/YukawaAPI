@@ -184,6 +184,49 @@ func TestGetUser(t *testing.T) {
 	}
 }
 
+func TestCloseUser(t *testing.T) {
+	e := echo.New()
+	u := userModelStub{}
+	h := Handler{&u}
+	e.POST("/close", h.CloseUser)
+
+	tests := []struct {
+		name string
+		auth string
+		code int
+		resp interface{}
+	}{
+		{
+			"OK case",
+			"Basic VGFyb1lhbWFkYTpQYVNTd2Q0VFk=",
+			http.StatusOK,
+			`{"message":"Account and user successfully removed"}` + "\n",
+		},
+		{
+			"auth error",
+			"Basic VGFyb1lhbWFkYTpQYVNTd3c=",
+			http.StatusUnauthorized,
+			`{"message":"Authentication Faild"}` + "\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/close", nil)
+			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Authorization", tt.auth)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if rec.Code != tt.code {
+				t.Errorf("want = %d, got = %d", tt.code, rec.Code)
+			}
+			if got := rec.Body.String(); got != tt.resp.(string) {
+				t.Errorf("want = %s, got = %s", tt.resp, got)
+			}
+		})
+	}
+}
+
 //func TestFramework(t *testing.T) {
 //	e := echo.New()
 //	u := userModelStub{}
